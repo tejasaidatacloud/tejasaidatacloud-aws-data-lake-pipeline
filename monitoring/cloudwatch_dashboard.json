@@ -1,0 +1,169 @@
+{
+  "widgets": [
+    {
+      "type": "text",
+      "x": 0, "y": 0, "width": 24, "height": 2,
+      "properties": {
+        "markdown": "# 🏗️ AWS Data Lake Pipeline – Operations Dashboard\n**Environment:** ${environment} | **Region:** us-east-1 | Refreshes every 5 minutes"
+      }
+    },
+    {
+      "type": "metric",
+      "x": 0, "y": 2, "width": 6, "height": 6,
+      "properties": {
+        "title": "Pipeline Executions (24h)",
+        "metrics": [
+          ["DataLakePipeline", "PipelineSuccess", "Environment", "dev", "Pipeline", "DataLake", { "label": "✅ Success", "color": "#2ca02c" }],
+          ["DataLakePipeline", "PipelineFailure", "Environment", "dev", "Pipeline", "DataLake", { "label": "❌ Failure", "color": "#d62728" }]
+        ],
+        "view": "singleValue",
+        "period": 86400,
+        "stat": "Sum",
+        "region": "us-east-1"
+      }
+    },
+    {
+      "type": "metric",
+      "x": 6, "y": 2, "width": 6, "height": 6,
+      "properties": {
+        "title": "Records Ingested Today",
+        "metrics": [
+          ["DataLakePipeline", "RecordsIngested", "Pipeline", "Ingestion", { "label": "Records", "color": "#1f77b4" }]
+        ],
+        "view": "singleValue",
+        "period": 86400,
+        "stat": "Sum",
+        "region": "us-east-1"
+      }
+    },
+    {
+      "type": "metric",
+      "x": 12, "y": 2, "width": 6, "height": 6,
+      "properties": {
+        "title": "Validation Pass Rate",
+        "metrics": [
+          [{
+            "expression": "100 * passed / (passed + failed)",
+            "label": "Pass Rate %",
+            "id": "rate",
+            "color": "#2ca02c"
+          }],
+          ["DataLakePipeline", "ValidationPassed", { "id": "passed", "visible": false }],
+          ["DataLakePipeline", "ValidationFailed", { "id": "failed", "visible": false }]
+        ],
+        "view": "singleValue",
+        "period": 86400,
+        "stat": "Sum",
+        "region": "us-east-1",
+        "yAxis": { "left": { "min": 0, "max": 100 } }
+      }
+    },
+    {
+      "type": "metric",
+      "x": 18, "y": 2, "width": 6, "height": 6,
+      "properties": {
+        "title": "Ingestion Duration (avg, seconds)",
+        "metrics": [
+          ["DataLakePipeline", "IngestionDurationSeconds", "Pipeline", "Ingestion", { "label": "Avg Duration", "color": "#ff7f0e" }]
+        ],
+        "view": "singleValue",
+        "period": 86400,
+        "stat": "Average",
+        "region": "us-east-1"
+      }
+    },
+    {
+      "type": "metric",
+      "x": 0, "y": 8, "width": 12, "height": 6,
+      "properties": {
+        "title": "Pipeline Execution Trend (7 days)",
+        "metrics": [
+          ["DataLakePipeline", "PipelineSuccess", "Environment", "dev", "Pipeline", "DataLake", { "label": "Success", "color": "#2ca02c" }],
+          ["DataLakePipeline", "PipelineFailure", "Environment", "dev", "Pipeline", "DataLake", { "label": "Failure",  "color": "#d62728" }]
+        ],
+        "view": "timeSeries",
+        "stacked": false,
+        "period": 86400,
+        "stat": "Sum",
+        "region": "us-east-1",
+        "start": "-P7D",
+        "end": "P0D"
+      }
+    },
+    {
+      "type": "metric",
+      "x": 12, "y": 8, "width": 12, "height": 6,
+      "properties": {
+        "title": "Records Ingested Trend (7 days)",
+        "metrics": [
+          ["DataLakePipeline", "RecordsIngested", "Pipeline", "Ingestion", { "label": "Records Ingested", "color": "#1f77b4" }]
+        ],
+        "view": "timeSeries",
+        "period": 86400,
+        "stat": "Sum",
+        "region": "us-east-1",
+        "start": "-P7D",
+        "end": "P0D"
+      }
+    },
+    {
+      "type": "metric",
+      "x": 0, "y": 14, "width": 12, "height": 6,
+      "properties": {
+        "title": "Validation Checks – Pass vs Fail (per layer)",
+        "metrics": [
+          ["DataLakePipeline", "ValidationPassed", "Layer", "raw",     { "label": "Raw Passed",     "color": "#2ca02c" }],
+          ["DataLakePipeline", "ValidationFailed", "Layer", "raw",     { "label": "Raw Failed",     "color": "#d62728" }],
+          ["DataLakePipeline", "ValidationPassed", "Layer", "cleaned", { "label": "Cleaned Passed", "color": "#17becf" }],
+          ["DataLakePipeline", "ValidationFailed", "Layer", "cleaned", { "label": "Cleaned Failed", "color": "#bcbd22" }],
+          ["DataLakePipeline", "ValidationPassed", "Layer", "curated", { "label": "Curated Passed", "color": "#9467bd" }],
+          ["DataLakePipeline", "ValidationFailed", "Layer", "curated", { "label": "Curated Failed", "color": "#e377c2" }]
+        ],
+        "view": "timeSeries",
+        "period": 86400,
+        "stat": "Sum",
+        "region": "us-east-1"
+      }
+    },
+    {
+      "type": "metric",
+      "x": 12, "y": 14, "width": 12, "height": 6,
+      "properties": {
+        "title": "Row Count by Layer & Dataset",
+        "metrics": [
+          ["DataLakePipeline", "RowCount", "Layer", "raw",     "Dataset", "weather", { "label": "Raw Weather" }],
+          ["DataLakePipeline", "RowCount", "Layer", "raw",     "Dataset", "crypto",  { "label": "Raw Crypto" }],
+          ["DataLakePipeline", "RowCount", "Layer", "cleaned", "Dataset", "weather", { "label": "Cleaned Weather" }],
+          ["DataLakePipeline", "RowCount", "Layer", "cleaned", "Dataset", "crypto",  { "label": "Cleaned Crypto" }],
+          ["DataLakePipeline", "RowCount", "Layer", "curated", "Dataset", "daily_summary", { "label": "Curated Daily Summary" }]
+        ],
+        "view": "timeSeries",
+        "period": 86400,
+        "stat": "Average",
+        "region": "us-east-1"
+      }
+    },
+    {
+      "type": "alarm",
+      "x": 0, "y": 20, "width": 24, "height": 4,
+      "properties": {
+        "title": "Active Alarms",
+        "alarms": [
+          "arn:aws:cloudwatch:us-east-1::alarm:data-lake-dev-pipeline-failure",
+          "arn:aws:cloudwatch:us-east-1::alarm:data-lake-dev-validation-failure",
+          "arn:aws:cloudwatch:us-east-1::alarm:data-lake-dev-ingestion-errors"
+        ]
+      }
+    },
+    {
+      "type": "log",
+      "x": 0, "y": 24, "width": 24, "height": 6,
+      "properties": {
+        "title": "Recent DQ Metrics (Glue Logs)",
+        "query": "SOURCE '/aws-glue/jobs/output' | filter @message like 'DQ_METRICS' | parse @message 'DQ_METRICS: *' as json_body | fields json_body | sort @timestamp desc | limit 20",
+        "region": "us-east-1",
+        "view": "table"
+      }
+    }
+  ]
+}

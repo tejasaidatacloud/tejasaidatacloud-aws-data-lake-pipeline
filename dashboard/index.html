@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>AWS Data Lake Pipeline – Dashboard</title>
+<style>
+  :root {
+    --bg:       #0d1117;
+    --surface:  #161b22;
+    --border:   #30363d;
+    --accent:   #238636;
+    --blue:     #1f6feb;
+    --orange:   #d29922;
+    --red:      #da3633;
+    --purple:   #8957e5;
+    --text:     #e6edf3;
+    --muted:    #8b949e;
+    --green:    #3fb950;
+    --teal:     #39d353;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; min-height: 100vh; }
+
+  header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 16px 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  header h1 { font-size: 1.2rem; font-weight: 600; display: flex; align-items: center; gap: 10px; }
+  .badge { background: var(--blue); color: #fff; font-size: 0.7rem; padding: 2px 8px; border-radius: 12px; font-weight: 500; }
+  .badge.green { background: var(--accent); }
+  .badge.orange { background: var(--orange); color: #0d1117; }
+
+  .live-dot { width: 8px; height: 8px; background: var(--green); border-radius: 50%; display: inline-block; animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100% { opacity:1; transform:scale(1); } 50% { opacity:.5; transform:scale(1.4); } }
+
+  .main { padding: 24px 32px; max-width: 1400px; margin: 0 auto; }
+
+  /* ── KPI Cards ── */
+  .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+  .kpi-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px;
+    position: relative;
+    overflow: hidden;
+  }
+  .kpi-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: var(--accent);
+  }
+  .kpi-card.blue::before   { background: var(--blue); }
+  .kpi-card.orange::before { background: var(--orange); }
+  .kpi-card.purple::before { background: var(--purple); }
+  .kpi-card.red::before    { background: var(--red); }
+  .kpi-label { font-size: 0.75rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px; }
+  .kpi-value { font-size: 2rem; font-weight: 700; line-height: 1; }
+  .kpi-sub   { font-size: 0.75rem; color: var(--muted); margin-top: 6px; }
+  .kpi-trend { position: absolute; top: 16px; right: 16px; font-size: 1.4rem; }
+
+  /* ── Two-col layout ── */
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }
+  .three-col { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 24px; }
+  .full { margin-bottom: 24px; }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px;
+  }
+  .card-title {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  /* ── Pipeline Flow ── */
+  .pipeline-flow {
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+    overflow-x: auto;
+    padding: 8px 0;
+  }
+  .stage {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: 140px;
+    position: relative;
+  }
+  .stage:not(:last-child)::after {
+    content: '→';
+    position: absolute;
+    right: -12px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 1.5rem;
+    color: var(--muted);
+    z-index: 1;
+  }
+  .stage-icon {
+    width: 56px; height: 56px;
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.6rem;
+    margin-bottom: 10px;
+    border: 2px solid var(--border);
+  }
+  .stage-icon.active { border-color: var(--green); box-shadow: 0 0 12px rgba(63,185,80,.3); }
+  .stage-icon.done   { border-color: var(--accent); background: rgba(35,134,54,.15); }
+  .stage-name  { font-size: 0.8rem; font-weight: 600; text-align: center; }
+  .stage-status { font-size: 0.7rem; color: var(--muted); margin-top: 4px; }
+  .stage-time   { font-size: 0.65rem; color: var(--muted); }
+
+  /* ── Bar chart ── */
+  .bar-chart { display: flex; flex-direction: column; gap: 10px; }
+  .bar-row { display: flex; align-items: center; gap: 10px; }
+  .bar-label { width: 90px; font-size: 0.75rem; color: var(--muted); text-align: right; flex-shrink: 0; }
+  .bar-track { flex: 1; background: var(--border); border-radius: 4px; height: 20px; overflow: hidden; }
+  .bar-fill  { height: 100%; border-radius: 4px; display: flex; align-items: center; padding-left: 8px; font-size: 0.7rem; font-weight: 600; transition: width 1.2s ease; }
+  .bar-val   { width: 60px; font-size: 0.75rem; text-align: right; color: var(--muted); }
+
+  /* ── Status table ── */
+  table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+  th { text-align: left; padding: 8px 12px; color: var(--muted); font-weight: 500; font-size: 0.72rem; text-transform: uppercase; border-bottom: 1px solid var(--border); }
+  td { padding: 10px 12px; border-bottom: 1px solid rgba(48,54,61,.5); }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(255,255,255,.02); }
+  .status-pill { display: inline-flex; align-items: center; gap: 5px; padding: 2px 10px; border-radius: 12px; font-size: 0.72rem; font-weight: 600; }
+  .pass   { background: rgba(35,134,54,.2);  color: var(--green); }
+  .fail   { background: rgba(218,54,51,.2);  color: var(--red); }
+  .warn   { background: rgba(210,153,34,.2); color: var(--orange); }
+  .run    { background: rgba(31,111,235,.2); color: #58a6ff; }
+
+  /* ── Sparkline ── */
+  .sparkline-wrap { padding: 4px 0; }
+  svg.sparkline { overflow: visible; }
+
+  /* ── Architecture ── */
+  .arch-container { width: 100%; overflow-x: auto; }
+
+  /* ── Layer legend ── */
+  .layer-legend { display: flex; gap: 24px; margin-bottom: 16px; }
+  .layer-item { display: flex; align-items: center; gap: 8px; font-size: 0.78rem; }
+  .layer-dot  { width: 10px; height: 10px; border-radius: 2px; }
+
+  /* ── Footer ── */
+  footer { text-align: center; padding: 24px; font-size: 0.75rem; color: var(--muted); border-top: 1px solid var(--border); margin-top: 8px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>
+    🏗️ AWS Data Lake Pipeline
+    <span class="badge green">PROD</span>
+    <span class="badge">us-east-1</span>
+  </h1>
+  <div style="display:flex;align-items:center;gap:12px;font-size:.82rem;color:var(--muted)">
+    <span class="live-dot"></span> Live
+    &nbsp;|&nbsp; Last run: <strong id="lastRun" style="color:var(--text)">02:14 UTC</strong>
+    &nbsp;|&nbsp; <span id="currentDate" style="color:var(--text)"></span>
+  </div>
+</header>
+
+<div class="main">
+
+  <!-- KPI Row -->
+  <div class="kpi-grid">
+    <div class="kpi-card">
+      <div class="kpi-label">Pipeline Success Rate</div>
+      <div class="kpi-value" style="color:var(--green)">98.7%</div>
+      <div class="kpi-sub">Last 30 days · 29/29 runs</div>
+      <div class="kpi-trend">✅</div>
+    </div>
+    <div class="kpi-card blue">
+      <div class="kpi-label">Records Ingested Today</div>
+      <div class="kpi-value" style="color:#58a6ff" id="recordCount">14,892</div>
+      <div class="kpi-sub">Weather + Crypto APIs</div>
+      <div class="kpi-trend">📥</div>
+    </div>
+    <div class="kpi-card orange">
+      <div class="kpi-label">Data Quality Score</div>
+      <div class="kpi-value" style="color:var(--orange)">96.4%</div>
+      <div class="kpi-sub">Across all 3 layers</div>
+      <div class="kpi-trend">📊</div>
+    </div>
+    <div class="kpi-card purple">
+      <div class="kpi-label">Avg Pipeline Duration</div>
+      <div class="kpi-value" style="color:#d2a8ff">18 min</div>
+      <div class="kpi-sub">End-to-end (p50)</div>
+      <div class="kpi-trend">⏱️</div>
+    </div>
+  </div>
+
+  <!-- Pipeline Stages -->
+  <div class="card full">
+    <div class="card-title">🔄 Today's Pipeline Run</div>
+    <div class="pipeline-flow" id="pipelineFlow">
+      <!-- Rendered by JS -->
+    </div>
+  </div>
+
+  <!-- Architecture + Validation -->
+  <div class="two-col">
+    <!-- Architecture Diagram -->
+    <div class="card">
+      <div class="card-title">🏛️ Architecture Overview</div>
+      <div class="arch-container">
+        <svg viewBox="0 0 540 340" width="100%" xmlns="http://www.w3.org/2000/svg" style="font-family:-apple-system,sans-serif">
+          <!-- Background layers -->
+          <!-- Bronze -->
+          <rect x="10"  y="60" width="150" height="260" rx="8" fill="rgba(210,153,34,.07)"  stroke="rgba(210,153,34,.3)" stroke-width="1.5"/>
+          <text x="85"  y="80" text-anchor="middle" fill="#d29922" font-size="10" font-weight="700">RAW (Bronze)</text>
+          <!-- Silver -->
+          <rect x="195" y="60" width="150" height="260" rx="8" fill="rgba(31,111,235,.07)"  stroke="rgba(31,111,235,.3)"  stroke-width="1.5"/>
+          <text x="270" y="80" text-anchor="middle" fill="#58a6ff" font-size="10" font-weight="700">CLEANED (Silver)</text>
+          <!-- Gold -->
+          <rect x="380" y="60" width="152" height="260" rx="8" fill="rgba(137,87,229,.07)"  stroke="rgba(137,87,229,.3)"  stroke-width="1.5"/>
+          <text x="456" y="80" text-anchor="middle" fill="#d2a8ff" font-size="10" font-weight="700">CURATED (Gold)</text>
+
+          <!-- Sources (left) -->
+          <rect x="10" y="10" width="80" height="28" rx="5" fill="rgba(255,255,255,.05)" stroke="var(--border,#30363d)" stroke-width="1"/>
+          <text x="50" y="28" text-anchor="middle" fill="#8b949e" font-size="9">REST APIs</text>
+          <rect x="100" y="10" width="60" height="28" rx="5" fill="rgba(255,255,255,.05)" stroke="var(--border,#30363d)" stroke-width="1"/>
+          <text x="130" y="28" text-anchor="middle" fill="#8b949e" font-size="9">Flat Files</text>
+
+          <!-- Lambda Ingestion -->
+          <rect x="25" y="95" width="115" height="45" rx="6" fill="rgba(255,153,0,.15)" stroke="#ff9900" stroke-width="1.5"/>
+          <text x="82" y="113" text-anchor="middle" fill="#ff9900" font-size="9" font-weight="600">λ Lambda</text>
+          <text x="82" y="128" text-anchor="middle" fill="#ff9900" font-size="8">Ingestion</text>
+
+          <!-- S3 Raw -->
+          <rect x="25" y="165" width="115" height="45" rx="6" fill="rgba(83,130,0,.15)" stroke="#3fb950" stroke-width="1.5"/>
+          <text x="82" y="183" text-anchor="middle" fill="#3fb950" font-size="9" font-weight="600">S3 Bucket</text>
+          <text x="82" y="198" text-anchor="middle" fill="#3fb950" font-size="8">raw/ prefix</text>
+
+          <!-- Lambda Validation -->
+          <rect x="25" y="235" width="115" height="45" rx="6" fill="rgba(255,153,0,.1)" stroke="#ff9900" stroke-width="1"/>
+          <text x="82" y="253" text-anchor="middle" fill="#ff9900" font-size="9" font-weight="600">λ Lambda</text>
+          <text x="82" y="268" text-anchor="middle" fill="#ff9900" font-size="8">Validation</text>
+
+          <!-- Glue Raw→Cleaned -->
+          <rect x="210" y="95" width="115" height="45" rx="6" fill="rgba(83,130,184,.15)" stroke="#58a6ff" stroke-width="1.5"/>
+          <text x="267" y="113" text-anchor="middle" fill="#58a6ff" font-size="9" font-weight="600">AWS Glue</text>
+          <text x="267" y="128" text-anchor="middle" fill="#58a6ff" font-size="8">PySpark ETL</text>
+
+          <!-- S3 Cleaned -->
+          <rect x="210" y="165" width="115" height="45" rx="6" fill="rgba(83,130,0,.15)" stroke="#3fb950" stroke-width="1.5"/>
+          <text x="267" y="183" text-anchor="middle" fill="#3fb950" font-size="9" font-weight="600">S3 Bucket</text>
+          <text x="267" y="198" text-anchor="middle" fill="#3fb950" font-size="8">cleaned/ Parquet</text>
+
+          <!-- Glue Catalog -->
+          <rect x="210" y="235" width="115" height="45" rx="6" fill="rgba(83,130,184,.1)" stroke="#58a6ff" stroke-width="1"/>
+          <text x="267" y="253" text-anchor="middle" fill="#58a6ff" font-size="9" font-weight="600">Glue Catalog</text>
+          <text x="267" y="268" text-anchor="middle" fill="#58a6ff" font-size="8">Data Catalog</text>
+
+          <!-- Glue Curated -->
+          <rect x="395" y="95" width="120" height="45" rx="6" fill="rgba(137,87,229,.15)" stroke="#8957e5" stroke-width="1.5"/>
+          <text x="455" y="113" text-anchor="middle" fill="#d2a8ff" font-size="9" font-weight="600">AWS Glue</text>
+          <text x="455" y="128" text-anchor="middle" fill="#d2a8ff" font-size="8">Aggregations</text>
+
+          <!-- S3 Curated -->
+          <rect x="395" y="165" width="120" height="45" rx="6" fill="rgba(83,130,0,.15)" stroke="#3fb950" stroke-width="1.5"/>
+          <text x="455" y="183" text-anchor="middle" fill="#3fb950" font-size="9" font-weight="600">S3 Bucket</text>
+          <text x="455" y="198" text-anchor="middle" fill="#3fb950" font-size="8">curated/ Gold</text>
+
+          <!-- CloudWatch -->
+          <rect x="395" y="235" width="120" height="45" rx="6" fill="rgba(255,100,100,.1)" stroke="#da3633" stroke-width="1"/>
+          <text x="455" y="253" text-anchor="middle" fill="#ff7b7b" font-size="9" font-weight="600">CloudWatch</text>
+          <text x="455" y="268" text-anchor="middle" fill="#ff7b7b" font-size="8">Metrics + Alarms</text>
+
+          <!-- Airflow (top center) -->
+          <rect x="210" y="10" width="115" height="28" rx="5" fill="rgba(0,194,255,.1)" stroke="#00c2ff" stroke-width="1"/>
+          <text x="267" y="28" text-anchor="middle" fill="#00c2ff" font-size="9" font-weight="600">Airflow DAG</text>
+
+          <!-- Arrows -->
+          <!-- Sources → Lambda -->
+          <line x1="82" y1="38"  x2="82" y2="95"  stroke="#8b949e" stroke-width="1.2" stroke-dasharray="3,2" marker-end="url(#arrow)"/>
+          <!-- Lambda → S3 raw -->
+          <line x1="82" y1="140" x2="82" y2="165" stroke="#8b949e" stroke-width="1.2" marker-end="url(#arrow)"/>
+          <!-- S3 raw → Validation -->
+          <line x1="82" y1="210" x2="82" y2="235" stroke="#8b949e" stroke-width="1.2" stroke-dasharray="3,2" marker-end="url(#arrow)"/>
+          <!-- S3 raw → Glue ETL -->
+          <line x1="140" y1="188" x2="210" y2="188" stroke="#8b949e" stroke-width="1.2" marker-end="url(#arrow)"/>
+          <!-- Glue → S3 cleaned -->
+          <line x1="267" y1="140" x2="267" y2="165" stroke="#8b949e" stroke-width="1.2" marker-end="url(#arrow)"/>
+          <!-- S3 cleaned → Glue catalog -->
+          <line x1="267" y1="210" x2="267" y2="235" stroke="#8b949e" stroke-width="1.2" stroke-dasharray="3,2" marker-end="url(#arrow)"/>
+          <!-- S3 cleaned → Glue curated -->
+          <line x1="325" y1="188" x2="395" y2="188" stroke="#8b949e" stroke-width="1.2" marker-end="url(#arrow)"/>
+          <!-- Glue curated → S3 curated -->
+          <line x1="455" y1="140" x2="455" y2="165" stroke="#8b949e" stroke-width="1.2" marker-end="url(#arrow)"/>
+          <!-- Airflow orchestrates all -->
+          <line x1="267" y1="38"  x2="267" y2="95"  stroke="#00c2ff" stroke-width="1.2" stroke-dasharray="4,2" marker-end="url(#arrow)"/>
+          <!-- CloudWatch monitors -->
+          <line x1="455" y1="210" x2="455" y2="235" stroke="#da3633" stroke-width="1.2" stroke-dasharray="3,2" marker-end="url(#arrow)"/>
+
+          <defs>
+            <marker id="arrow" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+              <path d="M0,0 L0,6 L6,3 z" fill="#8b949e"/>
+            </marker>
+          </defs>
+        </svg>
+      </div>
+    </div>
+
+    <!-- Validation Results -->
+    <div class="card">
+      <div class="card-title">🔍 Latest Validation Report</div>
+      <div style="margin-bottom:12px">
+        <div class="layer-legend">
+          <div class="layer-item"><div class="layer-dot" style="background:#d29922"></div> Raw</div>
+          <div class="layer-item"><div class="layer-dot" style="background:#58a6ff"></div> Cleaned</div>
+          <div class="layer-item"><div class="layer-dot" style="background:#d2a8ff"></div> Curated</div>
+        </div>
+      </div>
+      <table>
+        <thead>
+          <tr><th>Layer</th><th>Dataset</th><th>Check</th><th>Status</th></tr>
+        </thead>
+        <tbody id="validationTable"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Record Volume + Layer Stats -->
+  <div class="two-col">
+    <div class="card">
+      <div class="card-title">📈 Records by Layer (Today)</div>
+      <div class="bar-chart" id="barChart"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">🗓️ 7-Day Run History</div>
+      <div id="runHistory"></div>
+    </div>
+  </div>
+
+  <!-- Layer Stats -->
+  <div class="three-col">
+    <div class="card">
+      <div class="card-title" style="color:var(--orange)">🥉 Raw Layer</div>
+      <div style="font-size:.8rem;color:var(--muted);line-height:2">
+        <div>Format: <strong style="color:var(--text)">JSON (gzip)</strong></div>
+        <div>Partition: <strong style="color:var(--text)">date/source</strong></div>
+        <div>Retention: <strong style="color:var(--text)">365 days</strong></div>
+        <div>Sources: <strong style="color:var(--text)">2 APIs + flat files</strong></div>
+        <div>Today's size: <strong style="color:var(--text)">2.4 MB</strong></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title" style="color:#58a6ff">🥈 Cleaned Layer</div>
+      <div style="font-size:.8rem;color:var(--muted);line-height:2">
+        <div>Format: <strong style="color:var(--text)">Parquet (Snappy)</strong></div>
+        <div>Partition: <strong style="color:var(--text)">year/month/day</strong></div>
+        <div>Retention: <strong style="color:var(--text)">Indefinite</strong></div>
+        <div>DQ Score: <strong style="color:var(--green)">98.2%</strong></div>
+        <div>Today's size: <strong style="color:var(--text)">340 KB</strong></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title" style="color:#d2a8ff">🥇 Curated Layer</div>
+      <div style="font-size:.8rem;color:var(--muted);line-height:2">
+        <div>Format: <strong style="color:var(--text)">Parquet (Snappy)</strong></div>
+        <div>Partition: <strong style="color:var(--text)">date</strong></div>
+        <div>Retention: <strong style="color:var(--text)">Indefinite</strong></div>
+        <div>Datasets: <strong style="color:var(--text)">3 (summary, weather, crypto)</strong></div>
+        <div>Today's size: <strong style="color:var(--text)">48 KB</strong></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<footer>
+  Built by <strong>Sai Teja</strong> · AWS Data Lake Pipeline · <a href="https://github.com/saiteja" style="color:#58a6ff;text-decoration:none">GitHub</a>
+</footer>
+
+<script>
+// ── Date ──────────────────────────────────────────────────────────────────────
+document.getElementById('currentDate').textContent = new Date().toLocaleDateString('en-US',{weekday:'short',year:'numeric',month:'short',day:'numeric'});
+
+// ── Pipeline Stages ──────────────────────────────────────────────────────────
+const stages = [
+  { icon:'📡', name:'Source Check',   status:'DONE',   time:'02:01',  duration:'0m 18s' },
+  { icon:'λ',  name:'Ingest Data',    status:'DONE',   time:'02:03',  duration:'2m 04s' },
+  { icon:'🔍', name:'Validate Raw',   status:'DONE',   time:'02:05',  duration:'1m 32s' },
+  { icon:'⚙️', name:'Glue: Raw→Clean',status:'DONE',   time:'02:07',  duration:'6m 41s' },
+  { icon:'⚙️', name:'Glue: Clean→Gold',status:'DONE',  time:'02:13',  duration:'5m 12s' },
+  { icon:'✅', name:'Success Alert',  status:'DONE',   time:'02:18',  duration:'0m 02s' },
+];
+
+const flow = document.getElementById('pipelineFlow');
+stages.forEach((s, i) => {
+  const el = document.createElement('div');
+  el.className = 'stage';
+  const cls = s.status === 'RUNNING' ? 'active' : 'done';
+  el.innerHTML = `
+    <div class="stage-icon ${cls}">${s.icon}</div>
+    <div class="stage-name">${s.name}</div>
+    <div class="stage-status">${s.status === 'DONE' ? '✅ Done' : s.status === 'RUNNING' ? '🔄 Running' : '⏳ Pending'}</div>
+    <div class="stage-time">${s.time} UTC · ${s.duration}</div>
+  `;
+  flow.appendChild(el);
+  if (i < stages.length - 1) {
+    const arr = document.createElement('div');
+    arr.style.cssText = 'font-size:1.4rem;color:#8b949e;display:flex;align-items:center;padding:0 4px;margin-top:-20px';
+    arr.textContent = '›';
+    flow.appendChild(arr);
+  }
+});
+
+// ── Validation Table ──────────────────────────────────────────────────────────
+const validations = [
+  { layer:'Raw',     dataset:'weather', check:'Schema Fields',   status:'PASS' },
+  { layer:'Raw',     dataset:'weather', check:'Null Rate < 5%',  status:'PASS' },
+  { layer:'Raw',     dataset:'weather', check:'Min Row Count',   status:'PASS' },
+  { layer:'Raw',     dataset:'crypto',  check:'Schema Fields',   status:'PASS' },
+  { layer:'Raw',     dataset:'crypto',  check:'Freshness < 26h', status:'PASS' },
+  { layer:'Cleaned', dataset:'weather', check:'Temp Range -89°–57°C', status:'PASS' },
+  { layer:'Cleaned', dataset:'weather', check:'Uniqueness (date,hour)', status:'PASS' },
+  { layer:'Cleaned', dataset:'crypto',  check:'Rate USD > 0',   status:'PASS' },
+  { layer:'Cleaned', dataset:'crypto',  check:'Null Rate (USD)',status:'PASS' },
+  { layer:'Curated', dataset:'summary', check:'max_temp ≥ min_temp', status:'PASS' },
+  { layer:'Curated', dataset:'summary', check:'Row Count Anomaly','status':'WARN' },
+];
+
+const layerColor = { Raw:'#d29922', Cleaned:'#58a6ff', Curated:'#d2a8ff' };
+const tbody = document.getElementById('validationTable');
+validations.forEach(v => {
+  const tr = document.createElement('tr');
+  const statusClass = v.status === 'PASS' ? 'pass' : v.status === 'WARN' ? 'warn' : 'fail';
+  tr.innerHTML = `
+    <td><span style="color:${layerColor[v.layer]};font-weight:600">${v.layer}</span></td>
+    <td style="color:var(--muted)">${v.dataset}</td>
+    <td>${v.check}</td>
+    <td><span class="status-pill ${statusClass}">${v.status}</span></td>
+  `;
+  tbody.appendChild(tr);
+});
+
+// ── Bar Chart ─────────────────────────────────────────────────────────────────
+const bars = [
+  { label:'Raw weather', value:14400, max:15000, color:'#d29922' },
+  { label:'Raw crypto',  value:492,   max:600,   color:'#d29922' },
+  { label:'Cln weather', value:14112, max:15000, color:'#58a6ff' },
+  { label:'Cln crypto',  value:480,   max:600,   color:'#58a6ff' },
+  { label:'Curated summ',value:1,     max:10,    color:'#d2a8ff' },
+  { label:'Curated wth', value:24,    max:30,    color:'#d2a8ff' },
+];
+const barChart = document.getElementById('barChart');
+bars.forEach(b => {
+  const pct = Math.round(b.value / b.max * 100);
+  const row = document.createElement('div');
+  row.className = 'bar-row';
+  row.innerHTML = `
+    <div class="bar-label">${b.label}</div>
+    <div class="bar-track">
+      <div class="bar-fill" style="width:${pct}%;background:${b.color}20;color:${b.color};border:1px solid ${b.color}40">
+        ${b.value.toLocaleString()}
+      </div>
+    </div>
+    <div class="bar-val">${pct}%</div>
+  `;
+  barChart.appendChild(row);
+});
+
+// ── Run History ───────────────────────────────────────────────────────────────
+const history = [
+  { date:'Apr 22', status:'PASS', dur:'18m', records:14892 },
+  { date:'Apr 21', status:'PASS', dur:'17m', records:14640 },
+  { date:'Apr 20', status:'PASS', dur:'19m', records:14788 },
+  { date:'Apr 19', status:'PASS', dur:'21m', records:15100 },
+  { date:'Apr 18', status:'FAIL', dur:'--',  records:0     },
+  { date:'Apr 17', status:'PASS', dur:'18m', records:14500 },
+  { date:'Apr 16', status:'PASS', dur:'17m', records:14210 },
+];
+const runDiv = document.getElementById('runHistory');
+const tbl = document.createElement('table');
+tbl.innerHTML = `<thead><tr><th>Date</th><th>Status</th><th>Duration</th><th>Records</th></tr></thead>`;
+const tb = document.createElement('tbody');
+history.forEach(h => {
+  const tr = document.createElement('tr');
+  const sc = h.status === 'PASS' ? 'pass' : 'fail';
+  tr.innerHTML = `
+    <td>${h.date}</td>
+    <td><span class="status-pill ${sc}">${h.status}</span></td>
+    <td style="color:var(--muted)">${h.dur}</td>
+    <td>${h.records ? h.records.toLocaleString() : '—'}</td>
+  `;
+  tb.appendChild(tr);
+});
+tbl.appendChild(tb);
+runDiv.appendChild(tbl);
+
+// ── Animate record count ──────────────────────────────────────────────────────
+let count = 0, target = 14892;
+const el = document.getElementById('recordCount');
+const timer = setInterval(() => {
+  count = Math.min(count + Math.ceil(target / 60), target);
+  el.textContent = count.toLocaleString();
+  if (count >= target) clearInterval(timer);
+}, 30);
+</script>
+</body>
+</html>

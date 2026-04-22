@@ -1,0 +1,52 @@
+pipeline:
+  name: aws-data-lake-pipeline
+  version: "1.0.0"
+  schedule: "0 2 * * *"   # Daily 02:00 UTC
+  timezone: UTC
+  max_retries: 2
+  retry_delay_minutes: 5
+
+layers:
+  raw:
+    format: json
+    compression: gzip
+    retention_days: 365
+    lifecycle:
+      standard_ia_days: 30
+      glacier_days: 90
+
+  cleaned:
+    format: parquet
+    compression: snappy
+    partition_by: [year, month, day]
+
+  curated:
+    format: parquet
+    compression: snappy
+    partition_by: [date]
+
+data_quality:
+  max_null_rate: 0.05
+  min_row_count: 10
+  anomaly_zscore_threshold: 3.0
+  historical_lookback_days: 7
+
+sources:
+  - name: open_meteo
+    type: rest_api
+    url: "https://api.open-meteo.com/v1/forecast"
+    layer_target: weather
+    max_retries: 3
+
+  - name: coindesk
+    type: rest_api
+    url: "https://api.coindesk.com/v1/bpi/currentprice.json"
+    layer_target: crypto
+    max_retries: 3
+
+monitoring:
+  cloudwatch_namespace: DataLakePipeline
+  alarm_evaluation_periods: 1
+  pipeline_failure_threshold: 1
+  validation_failure_threshold: 5
+  ingestion_error_threshold: 3
